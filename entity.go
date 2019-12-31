@@ -12,12 +12,12 @@ func (e *Entity) AddComponent(component interface{}) {
 	comp := component.(Component)
 	e.Components[comp.GetComponentType()] = comp
 	comp.SetEntityId(e.Id)
-	e.World.updateRegistry(e)
+	e.World.addComponentFromEntity(e, comp)
 }
 
 func (e *Entity) RemoveComponent(componentType uint16) {
 	delete(e.Components, componentType)
-	e.World.updateRegistry(e)
+	e.World.removeComponentFromEntity(e, componentType)
 }
 
 func (e *Entity) GetComponent(componentType uint16) (interface{}, bool) {

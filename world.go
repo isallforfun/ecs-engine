@@ -12,19 +12,23 @@ type World struct {
 	systems    []System
 	lastUpdate time.Time
 	entities   map[uint32]*Entity
+	components map[uint16]map[uint32]Component
 
-	mutexCounter  sync.Mutex
-	mutexSystem   sync.RWMutex
-	mutexEntities sync.RWMutex
+	mutexCounter    sync.Mutex
+	mutexSystem     sync.RWMutex
+	mutexEntities   sync.RWMutex
+	mutexComponents sync.RWMutex
 }
 
 func (w *World) Init() {
+	w.mutexSystem.RLock()
 	for _, system := range w.systems {
 		system.RegisterWorld(w)
 	}
 	for _, system := range w.systems {
 		system.Init()
 	}
+	w.mutexSystem.RUnlock()
 }
 
 func (w *World) Update() {
@@ -38,17 +42,24 @@ func (w *World) Update() {
 
 func (w *World) AddSystem(system interface{}) {
 	sys := reflect.ValueOf(system).Interface().(System)
+	w.mutexSystem.Lock()
 	w.systems = append(w.systems, sys)
+	w.mutexSystem.Unlock()
 }
 
-func (w *World) updateRegistry(entity *Entity) {
-	for _, system := range w.systems {
-		if system.HasRequirements(entity) {
-			system.RegisterEntity(entity)
-		} else {
-			system.DeRegisterEntity(entity)
-		}
+func (w *World) addComponentFromEntity(entity *Entity, component Component) {
+	w.mutexComponents.Lock()
+	if _, has := w.components[component.GetComponentType()]; !has {
+		w.components[component.GetComponentType()] = make(map[uint32]Component)
 	}
+	w.components[component.GetComponentType()][entity.Id] = component
+	w.mutexComponents.Unlock()
+}
+
+func (w *World) removeComponentFromEntity(entity *Entity, componentId uint16) {
+	w.mutexComponents.Lock()
+	delete(w.components[componentId], entity.Id)
+	w.mutexComponents.Unlock()
 }
 
 func (w *World) GetEntity() *Entity {
@@ -64,31 +75,52 @@ func (w *World) GetEntity() *Entity {
 }
 
 func (w *World) RemoveEntity(entity *Entity) {
-	w.mutexEntities.Lock()
 	if _, has := w.entities[entity.Id]; has {
-		delete(w.entities, entity.Id)
-		for _, system := range w.systems {
-			system.DeRegisterEntity(entity)
+
+		for componentType, _ := range entity.Components {
+			w.mutexComponents.Lock()
+			delete(w.components[componentType], entity.Id)
+			w.mutexComponents.Unlock()
 		}
+		w.mutexEntities.Lock()
+		delete(w.entities, entity.Id)
+		w.mutexEntities.Unlock()
 	}
-	w.mutexEntities.Unlock()
 }
 
 func (w *World) GetEntitiesWithComponent(componentType ...uint16) []*Entity {
 	entities := make([]*Entity, 0, 0)
-	for _, entity := range w.entities {
-		hasAllComponent := true
-		for _, ct := range componentType {
-			if _, has := entity.GetComponent(ct); !has {
-				hasAllComponent = false
-				break
+	for _, tp := range componentType {
+		w.mutexComponents.RLock()
+		if components, has := w.components[tp]; has {
+			for u, _ := range components {
+				w.mutexEntities.RLock()
+				if entity, has := w.entities[u]; has {
+					entities = append(entities, entity)
+				}
+				w.mutexEntities.RUnlock()
 			}
 		}
-		if hasAllComponent {
-			entities = append(entities, entity)
-		}
+		w.mutexComponents.RUnlock()
 	}
 	return entities
+}
+
+func (w *World) GetComponents(componentType uint16) map[uint32]Component {
+	w.mutexComponents.RLock()
+	components, has := w.components[componentType]
+	w.mutexComponents.RUnlock()
+	if !has {
+		return make(map[uint32]Component, 0)
+	}
+	return components
+}
+
+func (w *World) GetComponentFromEntity(componentType uint16, entityId uint32) (Component, bool) {
+	w.mutexComponents.RLock()
+	component, has := w.components[componentType][entityId]
+	w.mutexComponents.RUnlock()
+	return component, has
 }
 
 func (w *World) AllEntities() map[uint32]*Entity {
@@ -97,11 +129,14 @@ func (w *World) AllEntities() map[uint32]*Entity {
 
 func NewWorld() *World {
 	return &World{
-		counter:      0,
-		systems:      make([]System, 0),
-		mutexCounter: sync.Mutex{},
-		mutexSystem:  sync.RWMutex{},
-		lastUpdate:   time.Now(),
-		entities:     make(map[uint32]*Entity),
+		counter:         0,
+		systems:         make([]System, 0),
+		mutexCounter:    sync.Mutex{},
+		mutexSystem:     sync.RWMutex{},
+		mutexEntities:   sync.RWMutex{},
+		mutexComponents: sync.RWMutex{},
+		lastUpdate:      time.Now(),
+		entities:        make(map[uint32]*Entity),
+		components:      make(map[uint16]map[uint32]Component),
 	}
 }

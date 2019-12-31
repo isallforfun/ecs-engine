@@ -2,7 +2,6 @@ package main
 
 import (
 	"ecs_engine"
-	"time"
 )
 
 const (
@@ -18,10 +17,10 @@ func main() {
 
 	player2 := world.GetEntity()
 	player2.AddComponent(NewTransform())
-	ticker := time.NewTicker(1 * time.Second)
+	//ticker := time.NewTicker(1 * time.Second)
 	world.Init()
 	for {
-		<-ticker.C
+		//<-ticker.C
 		world.Update()
 	}
 }

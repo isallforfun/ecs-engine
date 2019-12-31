@@ -30,6 +30,7 @@ func TestNewWorld(t *testing.T) {
 type SimpleSystem struct {
 	count    int
 	entities []*ecs_engine.Entity
+	world    *ecs_engine.World
 }
 
 func (s *SimpleSystem) Init() {
@@ -40,21 +41,8 @@ func (s *SimpleSystem) Update(duration time.Duration) {
 	s.count++
 }
 
-func (s SimpleSystem) RegisterWorld(world *ecs_engine.World) {
-}
-
-func (s *SimpleSystem) RegisterEntity(entity *ecs_engine.Entity) {
-	s.entities = append(s.entities, entity)
-}
-
-func (s *SimpleSystem) DeRegisterEntity(entity *ecs_engine.Entity) {
-	entities := make([]*ecs_engine.Entity, 0, 0)
-	for _, e := range s.entities {
-		if e.Id != entity.Id {
-			entities = append(entities, e)
-		}
-	}
-	s.entities = entities
+func (s *SimpleSystem) RegisterWorld(world *ecs_engine.World) {
+	s.world = world
 }
 
 func (s SimpleSystem) HasRequirements(entity *ecs_engine.Entity) bool {
@@ -91,8 +79,9 @@ func TestWorld_AddSystem(t *testing.T) {
 		}
 	}
 
-	if len(system.entities) != 1 {
-		t.Error("system not get the entity")
+	_, has = entity.GetComponent(Not_EXISTS_COMPONENT_TYPE)
+	if has {
+		t.Error("Entity has not existed component")
 	}
 
 	entity.RemoveComponent(COMPONENT_TYPE)
@@ -127,7 +116,8 @@ type SimpleComponent struct {
 }
 
 const (
-	COMPONENT_TYPE = 1
+	COMPONENT_TYPE            = 1
+	Not_EXISTS_COMPONENT_TYPE = 2
 )
 
 func TestWorld_GetEntitiesWithComponent(t *testing.T) {
@@ -146,6 +136,29 @@ func TestWorld_GetEntitiesWithComponent(t *testing.T) {
 		t.Error("Component not found")
 	}
 
+	if !entity.HasComponent(COMPONENT_TYPE) {
+		t.Error("component not saved")
+	}
+
+	components := world.GetComponents(COMPONENT_TYPE)
+
+	if len(components) != 1 {
+		t.Error("not found the components")
+	}
+
+	component, has := world.GetComponentFromEntity(COMPONENT_TYPE, entity.Id)
+	if !has {
+		t.Error("not found components")
+	} else {
+		if component == nil {
+			t.Error("found the components")
+		}
+
+		if _, instanceof := component.(*SimpleComponent); !instanceof {
+			t.Error("component not is instance of SimpleComponent")
+		}
+	}
+
 	entity.RemoveComponent(COMPONENT_TYPE)
 
 	entities = world.GetEntitiesWithComponent(COMPONENT_TYPE)
@@ -162,4 +175,32 @@ func TestWorld_GetEntitiesWithComponent(t *testing.T) {
 		t.Error("Entity not Removed")
 	}
 
+	components = world.GetComponents(COMPONENT_TYPE)
+	if len(components) != 0 {
+		t.Error("found the components")
+	}
+}
+
+func TestWorld_RemoveEntity2(t *testing.T) {
+
+	world := ecs_engine.NewWorld()
+	entity := world.GetEntity()
+	entity.AddComponent(&SimpleComponent{
+		BaseComponent: ecs_engine.BaseComponent{
+			ComponentType: COMPONENT_TYPE,
+		},
+	})
+
+	world.RemoveEntity(entity)
+	if len(world.AllEntities()) != 0 {
+		t.Error("not remove the entity")
+	}
+}
+
+func TestWorld_GetComponents_Empty(t *testing.T) {
+	world := ecs_engine.NewWorld()
+
+	if len(world.GetComponents(COMPONENT_TYPE)) != 0 {
+		t.Error("found mystery component")
+	}
 }

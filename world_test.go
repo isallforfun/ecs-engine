@@ -1,7 +1,7 @@
 package ecs_engine_test
 
 import (
-	"ecs_engine"
+	"github.com/isallforfun/ecs_engine"
 	"testing"
 	"time"
 )
@@ -43,10 +43,6 @@ func (s *SimpleSystem) Update(duration time.Duration) {
 
 func (s *SimpleSystem) RegisterWorld(world *ecs_engine.World) {
 	s.world = world
-}
-
-func (s SimpleSystem) HasRequirements(entity *ecs_engine.Entity) bool {
-	return entity.HasComponent(COMPONENT_TYPE)
 }
 
 func TestWorld_AddSystem(t *testing.T) {

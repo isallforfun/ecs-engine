@@ -1,7 +1,7 @@
 package main
 
 import (
-	"ecs_engine"
+	"github.com/isallforfun/ecs_engine"
 )
 
 const (

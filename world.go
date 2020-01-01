@@ -86,6 +86,11 @@ func (w *World) RemoveEntity(entity *Entity) {
 		delete(w.entities, entity.Id)
 		w.mutexEntities.Unlock()
 	}
+	w.mutexSystem.Lock()
+	for _, system := range w.systems {
+		system.OnEntityRemove(entity)
+	}
+	w.mutexSystem.Unlock()
 }
 
 func (w *World) GetEntitiesWithComponent(componentType ...uint16) []*Entity {

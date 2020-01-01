@@ -33,6 +33,9 @@ type SimpleSystem struct {
 	world    *ecs_engine.World
 }
 
+func (s *SimpleSystem) OnEntityRemove(entity *ecs_engine.Entity) {
+}
+
 func (s *SimpleSystem) Init() {
 	s.count = 0
 }
